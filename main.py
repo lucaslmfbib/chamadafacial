@@ -45,7 +45,8 @@ if _db_env:
         DB_URL = DB_URL.replace("postgresql://", "postgresql+psycopg://", 1)
     engine = create_engine(DB_URL, pool_pre_ping=True, pool_size=1, max_overflow=2)
 else:
-    DB_URL = f"sqlite:///{BASE_DIR / 'chamada.db'}"
+    _db_path = Path("/tmp/chamada.db") if os.getenv("VERCEL") else BASE_DIR / "chamada.db"
+    DB_URL = f"sqlite:///{_db_path}"
     engine = create_engine(DB_URL, connect_args={"check_same_thread": False})
 EMBEDDING_SIZE = 128  # faceRecognitionNet gera descritores de 128 floats
 ADMIN_PIN = os.getenv("ADMIN_PIN", "1234")  # troque em produção!
