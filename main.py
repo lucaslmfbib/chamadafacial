@@ -30,12 +30,18 @@ from sqlalchemy.orm import (DeclarativeBase, Mapped, Session, mapped_column,
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 # Fuso horário do Brasil (servidores na nuvem rodam em UTC).
-os.environ.setdefault("TZ", "America/Sao_Paulo")
-try:
-    import time as _time
-    _time.tzset()
-except AttributeError:  # Windows
-    pass
+from zoneinfo import ZoneInfo
+
+TZ_BR = ZoneInfo("America/Sao_Paulo")
+
+
+def agora() -> datetime:
+    """Hora de Brasília (sem tzinfo, para gravar no banco)."""
+    return datetime.now(TZ_BR).replace(tzinfo=None)
+
+
+def hoje_br() -> date:
+    return agora().date()
 
 # Em produção (Vercel + Neon) use DATABASE_URL; localmente cai no SQLite.
 _db_env = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
@@ -74,8 +80,8 @@ class Presenca(Base):
     __table_args__ = (UniqueConstraint("aluno_id", "data", name="uq_presenca_dia"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     aluno_id: Mapped[int] = mapped_column(ForeignKey("alunos.id"), nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-    data: Mapped[date] = mapped_column(Date, default=date.today, index=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=agora)
+    data: Mapped[date] = mapped_column(Date, default=hoje_br, index=True)
     aluno: Mapped[Aluno] = relationship(back_populates="presencas")
 
 
@@ -154,7 +160,7 @@ def cadastrar_aluno(payload: AlunoIn):
 
 @app.post("/api/presenca")
 def registrar_presenca(payload: PresencaIn):
-    hoje = date.today()
+    hoje = hoje_br()
     with SessionLocal() as db:
         aluno = db.get(Aluno, payload.aluno_id)
         if not aluno:
@@ -168,7 +174,7 @@ def registrar_presenca(payload: PresencaIn):
                                 f"{existente.timestamp:%H:%M}.",
                     "timestamp": existente.timestamp.isoformat()}
 
-        p = Presenca(aluno_id=aluno.id, data=hoje, timestamp=datetime.now())
+        p = Presenca(aluno_id=aluno.id, data=hoje, timestamp=agora())
         db.add(p)
         try:
             db.commit()
@@ -187,7 +193,7 @@ def presencas_hoje():
     with SessionLocal() as db:
         rows = db.execute(
             select(Presenca, Aluno).join(Aluno)
-            .where(Presenca.data == date.today()).order_by(Presenca.timestamp.desc())
+            .where(Presenca.data == hoje_br()).order_by(Presenca.timestamp.desc())
         ).all()
         return [{"aluno_id": a.id, "nome": a.nome, "matricula": a.matricula,
                  "timestamp": p.timestamp.isoformat()} for p, a in rows]
