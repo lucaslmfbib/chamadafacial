@@ -120,6 +120,12 @@ seed()
 app = FastAPI(title="Chamada Facial", version="1.0.0")
 
 
+@app.get("/api/status")
+def status():
+    return {"banco": engine.dialect.name,
+            "env": sorted(k for k in os.environ if "DATABASE" in k or "POSTGRES" in k or k.endswith("_URL"))}
+
+
 @app.get("/api/alunos/embeddings")
 def listar_embeddings():
     with SessionLocal() as db:
