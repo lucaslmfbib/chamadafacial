@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+chamada.db
+*.pem
+.DS_Store

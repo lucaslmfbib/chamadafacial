@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Painel administrativo da chamada facial: relatórios, exportação e limpeza de dados." />
+  <title>Admin · Chamada Facial</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    html, body { overflow: auto; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; width: 100%; }
+    .card { padding: 20px; }
+    .card h2 { font-size: 1.1rem; font-weight: 500; margin-bottom: 14px; }
+    .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+    .row label { flex: 1; min-width: 150px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+    .stat { padding: 18px; } .stat b { display: block; font-size: 2rem; }
+    .stat span { color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; }
+    .ghost { font: inherit; color: var(--text); background: rgba(255,255,255,.06); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; cursor: pointer; }
+    .danger { font: inherit; color: #fff; background: var(--err); border: 0; border-radius: 12px; padding: 12px 16px; cursor: pointer; }
+    .x { background: none; border: 0; color: var(--err); cursor: pointer; font-size: 1.1rem; }
+    a.link { color: var(--accent2); text-decoration: none; }
+    #login { max-width: 360px; margin: 12vh auto; }
+    .msg { color: var(--muted); padding: 10px 0; }
+  </style>
+</head>
+<body>
+  <header class="topbar glass">
+    <div class="brand"><span class="dot ok"></span><h1>Painel Admin</h1></div>
+    <a class="link" href="/">← Voltar ao totem</a>
+  </header>
+
+  <section id="login" class="card glass">
+    <h2>Digite o PIN de administrador</h2>
+    <form id="form-login" class="row">
+      <label>PIN<input id="input-pin" type="password" inputmode="numeric" required /></label>
+      <button class="primary" id="btn-login">Entrar</button>
+    </form>
+    <p class="msg" id="login-msg"></p>
+  </section>
+
+  <main class="wrap hidden" id="painel">
+    <div class="stats">
+      <div class="stat glass"><b id="st-hoje">0</b><span>Presenças hoje</span></div>
+      <div class="stat glass"><b id="st-periodo">0</b><span>No período filtrado</span></div>
+      <div class="stat glass"><b id="st-alunos">0</b><span>Alunos cadastrados</span></div>
+    </div>
+
+    <section class="card glass">
+      <h2>Presenças</h2>
+      <div class="row">
+        <label>De<input type="date" id="f-inicio" /></label>
+        <label>Até<input type="date" id="f-fim" /></label>
+        <button class="ghost" id="btn-hoje">Hoje</button>
+        <button class="ghost" id="btn-tudo">Tudo</button>
+        <button class="primary" id="btn-filtrar">Filtrar</button>
+        <button class="primary" id="btn-csv">⬇ Baixar Excel (CSV)</button>
+        <button class="danger" id="btn-zerar">🗑 Zerar período</button>
+      </div>
+      <table><thead><tr><th>Data</th><th>Hora</th><th>Matrícula</th><th>Nome</th><th></th></tr></thead>
+        <tbody id="tb-presencas"></tbody></table>
+      <p class="msg" id="msg-presencas"></p>
+    </section>
+
+    <section class="card glass">
+      <h2>Alunos</h2>
+      <table><thead><tr><th>Nome</th><th>Matrícula</th><th>Rosto</th><th>Presenças</th><th></th></tr></thead>
+        <tbody id="tb-alunos"></tbody></table>
+    </section>
+  </main>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+let PIN = sessionStorage.getItem('pin') || '';
+const hojeISO = () => new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD local
+const fmtData = (iso) => iso.split('-').reverse().join('/');
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { ...opts, headers: { 'X-Admin-Pin': PIN, ...(opts.headers || {}) } });
+  if (res.status === 401) { sessionStorage.removeItem('pin'); throw new Error('PIN inválido'); }
+  if (!res.ok) throw new Error((await res.json()).detail || 'Erro');
+  return res.json();
+}
+function periodo() {
+  const p = new URLSearchParams();
+  if ($('f-inicio').value) p.set('inicio', $('f-inicio').value);
+  if ($('f-fim').value) p.set('fim', $('f-fim').value);
+  return p;
+}
+
+async function carregarPresencas() {
+  const lista = await api('/api/admin/presencas?' + periodo());
+  $('st-periodo').textContent = lista.length;
+  $('tb-presencas').innerHTML = lista.map((p) => `<tr><td>${fmtData(p.data)}</td><td>${p.hora}</td>
+    <td>${esc(p.matricula)}</td><td>${esc(p.nome)}</td>
+    <td><button class="x" title="Apagar" data-p="${p.id}">✕</button></td></tr>`).join('');
+  $('msg-presencas').textContent = lista.length ? '' : 'Nenhuma presença no período.';
+  const hoje = await api(`/api/admin/presencas?inicio=${hojeISO()}&fim=${hojeISO()}`);
+  $('st-hoje').textContent = hoje.length;
+}
+async function carregarAlunos() {
+  const lista = await api('/api/admin/alunos');
+  $('st-alunos').textContent = lista.length;
+  $('tb-alunos').innerHTML = lista.map((a) => `<tr><td>${esc(a.nome)}</td><td>${esc(a.matricula)}</td>
+    <td>${a.tem_rosto ? '✅' : '—'}</td><td>${a.total_presencas}</td>
+    <td><button class="x" title="Excluir aluno" data-a="${a.id}">✕</button></td></tr>`).join('');
+}
+const recarregar = () => Promise.all([carregarPresencas(), carregarAlunos()]).catch((e) => alert(e.message));
+
+async function entrar() {
+  try {
+    await api('/api/admin/alunos');
+    sessionStorage.setItem('pin', PIN);
+    $('login').classList.add('hidden'); $('painel').classList.remove('hidden');
+    $('f-inicio').value = $('f-fim').value = hojeISO();
+    recarregar();
+  } catch (e) { $('login-msg').textContent = e.message; }
+}
+
+$('form-login').onsubmit = (e) => { e.preventDefault(); PIN = $('input-pin').value; entrar(); };
+$('btn-filtrar').onclick = recarregar;
+$('btn-hoje').onclick = () => { $('f-inicio').value = $('f-fim').value = hojeISO(); recarregar(); };
+$('btn-tudo').onclick = () => { $('f-inicio').value = $('f-fim').value = ''; recarregar(); };
+$('btn-csv').onclick = () => { const p = periodo(); p.set('pin', PIN); location.href = '/api/admin/presencas.csv?' + p; };
+$('btn-zerar').onclick = async () => {
+  const p = periodo();
+  const desc = p.toString() ? `de ${fmtData($('f-inicio').value || '0000-00-00')} até ${fmtData($('f-fim').value || hojeISO())}` : 'de TODO o histórico';
+  if (!confirm(`Apagar as presenças ${desc}?\nDica: baixe o CSV antes. Essa ação não pode ser desfeita.`)) return;
+  const r = await api('/api/admin/presencas?' + p, { method: 'DELETE' });
+  alert(`${r.apagadas} presença(s) apagada(s).`); recarregar();
+};
+document.addEventListener('click', async (e) => {
+  const { p, a } = e.target.dataset;
+  if (p && confirm('Apagar esta presença?')) { await api(`/api/admin/presencas/${p}`, { method: 'DELETE' }); recarregar(); }
+  if (a && confirm('Excluir este aluno e todas as presenças dele?')) { await api(`/api/admin/alunos/${a}`, { method: 'DELETE' }); recarregar(); }
+});
+if (PIN) entrar();
+</script>
+</body>
+</html>

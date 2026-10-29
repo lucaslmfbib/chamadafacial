@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0b1020" />
+  <meta name="description" content="Totem de chamada escolar por reconhecimento facial processado no próprio dispositivo." />
+  <title>Chamada Facial · Totem</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <script defer src="/script.js"></script>
+</head>
+<body>
+  <header class="topbar glass">
+    <div class="brand"><span class="dot" id="status-dot"></span><h1>Chamada Facial</h1></div>
+    <div class="datetime"><div class="clock" id="clock">--:--</div><div class="date" id="date"></div></div>
+    <nav class="modes">
+      <button id="btn-mode-chamada" class="mode active">Chamada</button>
+      <button id="btn-mode-cadastro" class="mode">Cadastro</button>
+      <a id="link-admin" class="mode" href="/admin.html" title="Painel Admin">⚙</a>
+    </nav>
+  </header>
+
+  <main class="stage">
+    <div class="camera-wrap" id="camera-wrap">
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="overlay"></canvas>
+      <div class="scan-ring"></div>
+      <div class="flash" id="flash"></div>
+    </div>
+
+    <section class="banner glass" id="banner" aria-live="polite">
+      <div class="banner-icon" id="banner-icon">⏳</div>
+      <div>
+        <p class="banner-title" id="banner-title">Inicializando…</p>
+        <p class="banner-sub" id="banner-sub">Carregando modelos de reconhecimento</p>
+      </div>
+    </section>
+
+    <aside class="side glass" id="panel-chamada">
+      <h2>Presenças de hoje <span class="badge" id="count">0</span></h2>
+      <ul id="lista-presencas" class="lista"></ul>
+    </aside>
+
+    <aside class="side glass hidden" id="panel-cadastro">
+      <h2>Cadastrar rosto</h2>
+      <form id="form-cadastro" autocomplete="off">
+        <label>Nome<input id="input-nome" required minlength="2" placeholder="Ex.: Maria Silva" /></label>
+        <label>Matrícula<input id="input-matricula" required placeholder="Ex.: 2026010" /></label>
+        <p class="hint">Posicione o rosto no centro. Serão capturadas 5 amostras.</p>
+        <div class="progress"><div id="progress-bar"></div></div>
+        <button id="btn-capturar" type="submit" class="primary">Capturar e salvar</button>
+      </form>
+    </aside>
+  </main>
+
+  <div id="start-overlay" class="start-overlay">
+    <button id="btn-start" class="primary big">Toque para iniciar o totem</button>
+    <p>Ativa câmera, som e tela cheia</p>
+  </div>
+</body>
+</html>
