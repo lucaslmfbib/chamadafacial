@@ -4,3 +4,4 @@ __pycache__/
 chamada.db
 *.pem
 .DS_Store
+tunnel.log

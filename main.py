@@ -29,11 +29,27 @@ from sqlalchemy.orm import (DeclarativeBase, Mapped, Session, mapped_column,
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-DB_URL = f"sqlite:///{BASE_DIR / 'chamada.db'}"
+# Fuso horário do Brasil (servidores na nuvem rodam em UTC).
+os.environ.setdefault("TZ", "America/Sao_Paulo")
+try:
+    import time as _time
+    _time.tzset()
+except AttributeError:  # Windows
+    pass
+
+# Em produção (Vercel + Neon) use DATABASE_URL; localmente cai no SQLite.
+_db_env = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
+if _db_env:
+    DB_URL = _db_env.replace("postgres://", "postgresql://", 1)
+    if DB_URL.startswith("postgresql://"):
+        DB_URL = DB_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+    engine = create_engine(DB_URL, pool_pre_ping=True, pool_size=1, max_overflow=2)
+else:
+    DB_URL = f"sqlite:///{BASE_DIR / 'chamada.db'}"
+    engine = create_engine(DB_URL, connect_args={"check_same_thread": False})
 EMBEDDING_SIZE = 128  # faceRecognitionNet gera descritores de 128 floats
 ADMIN_PIN = os.getenv("ADMIN_PIN", "1234")  # troque em produção!
 
-engine = create_engine(DB_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
